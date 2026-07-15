@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import {
   ArrowRight,
   CheckCircle2,
@@ -22,6 +23,11 @@ type Product = {
   status: 'В наличии' | 'Под заказ'
   delivery: string
   image: string
+}
+
+type NavigationItem = {
+  label: string
+  icon: LucideIcon
 }
 
 const products: Product[] = [
@@ -68,10 +74,17 @@ const products: Product[] = [
 ]
 
 const categories = [
-  ['Кроссовки', '128 товаров', '01'],
-  ['Одежда', '84 товара', '02'],
-  ['Аксессуары', '56 товаров', '03'],
-  ['Техника', '24 товара', '04'],
+  { title: 'Кроссовки', count: '128 товаров', number: '01' },
+  { title: 'Одежда', count: '84 товара', number: '02' },
+  { title: 'Аксессуары', count: '56 товаров', number: '03' },
+  { title: 'Техника', count: '24 товара', number: '04' },
+]
+
+const navigationItems: NavigationItem[] = [
+  { label: 'Главная', icon: Home },
+  { label: 'Каталог', icon: Search },
+  { label: 'Избранное', icon: Heart },
+  { label: 'Корзина', icon: ShoppingCart },
 ]
 
 export default function HomePage() {
@@ -105,14 +118,14 @@ export default function HomePage() {
             <span className="brand-name">INNER</span>
           </div>
           <div className="topbar-actions">
-            <button className="icon-button" aria-label="Избранное">
+            <button className="icon-button" aria-label="Избранное" type="button">
               <Heart size={20} />
               {favorites.length > 0 && <span className="counter">{favorites.length}</span>}
             </button>
-            <button className="icon-button" aria-label="Корзина">
+            <button className="icon-button" aria-label="Корзина" type="button">
               <ShoppingBag size={20} />
             </button>
-            <button className="avatar-button" aria-label="Профиль">
+            <button className="avatar-button" aria-label="Профиль" type="button">
               <UserRound size={18} />
             </button>
           </div>
@@ -124,8 +137,9 @@ export default function HomePage() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Найти бренд или модель"
+            aria-label="Найти бренд или модель"
           />
-          <button className="filter-button" aria-label="Фильтры">
+          <button className="filter-button" aria-label="Фильтры" type="button">
             <SlidersHorizontal size={18} />
           </button>
         </section>
@@ -140,7 +154,7 @@ export default function HomePage() {
             <p>
               Кроссовки, одежда и аксессуары из-за рубежа с проверкой подлинности.
             </p>
-            <button className="primary-button">
+            <button className="primary-button" type="button">
               Смотреть каталог
               <ArrowRight size={18} />
             </button>
@@ -164,14 +178,14 @@ export default function HomePage() {
               <span className="section-kicker">SHOP BY</span>
               <h2>Категории</h2>
             </div>
-            <button>Все <ArrowRight size={16} /></button>
+            <button type="button">Все <ArrowRight size={16} /></button>
           </div>
           <div className="category-grid">
-            {categories.map(([title, count, number]) => (
-              <button className="category-card" key={title}>
-                <span className="category-index">{number}</span>
-                <span className="category-title">{title}</span>
-                <span className="category-count">{count}</span>
+            {categories.map((category) => (
+              <button className="category-card" key={category.title} type="button">
+                <span className="category-index">{category.number}</span>
+                <span className="category-title">{category.title}</span>
+                <span className="category-count">{category.count}</span>
                 <ArrowRight className="category-arrow" size={18} />
               </button>
             ))}
@@ -184,7 +198,7 @@ export default function HomePage() {
               <span className="section-kicker">CURATED</span>
               <h2>{query ? 'Результаты поиска' : 'Популярное'}</h2>
             </div>
-            <button>Каталог <ArrowRight size={16} /></button>
+            <button type="button">Каталог <ArrowRight size={16} /></button>
           </div>
 
           {filteredProducts.length > 0 ? (
@@ -199,6 +213,7 @@ export default function HomePage() {
                         className={`favorite-button ${isFavorite ? 'is-active' : ''}`}
                         onClick={() => toggleFavorite(product.id)}
                         aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+                        type="button"
                       >
                         <Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
                       </button>
@@ -234,27 +249,22 @@ export default function HomePage() {
             <h2>Не нашли нужный товар?</h2>
             <p>Пришлите ссылку или фото — рассчитаем итоговую стоимость и доставку.</p>
           </div>
-          <button className="secondary-button">Написать @lutoway</button>
+          <button className="secondary-button" type="button">Написать @lutoway</button>
         </section>
       </div>
 
       <nav className="bottom-nav" aria-label="Навигация Mini App">
-        {[
-          ['Главная', Home],
-          ['Каталог', Search],
-          ['Избранное', Heart],
-          ['Корзина', ShoppingCart],
-        ].map(([label, Icon]) => {
-          const icon = Icon as typeof Home
+        {navigationItems.map(({ label, icon: Icon }) => {
           const active = activeTab === label
           return (
             <button
-              key={label as string}
+              key={label}
               className={active ? 'active' : ''}
-              onClick={() => setActiveTab(label as string)}
+              onClick={() => setActiveTab(label)}
+              type="button"
             >
-              {icon({ size: 20 })}
-              <span>{label as string}</span>
+              <Icon size={20} />
+              <span>{label}</span>
             </button>
           )
         })}
