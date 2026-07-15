@@ -1,12 +1,27 @@
-import type { Metadata } from 'next'
-import { AISupportButton } from '@/components/inner/ai-support-button'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
-
 export const metadata: Metadata = {
-  title: 'INNER — поиск вещей по фото',
-  description: 'Персональный шопинг-сервис. Фото, ссылка или описание превращаются в понятный заказ.',
-  generator: 'v0.app',
+  title: 'INNER — оригинальные товары без сложностей',
+  description:
+    'Telegram Mini App для покупки оригинальных кроссовок, одежды, аксессуаров и техники из-за рубежа.',
+  applicationName: 'INNER',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'INNER',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#03060B',
 }
 
 export default function RootLayout({
@@ -15,11 +30,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="ru" className="bg-background" suppressHydrationWarning>
-      <body className="font-sans antialiased">
-        {children}
-        <AISupportButton />
-      </body>
+    <html lang="ru" suppressHydrationWarning>
+      <body>{children}</body>
     </html>
   )
 }
