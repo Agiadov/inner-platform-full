@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { TelegramWebApp } from '@/components/inner/telegram-webapp'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -31,7 +32,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body>{children}</body>
+      <body>
+        <TelegramWebApp />
+        {children}
+      </body>
     </html>
   )
 }
