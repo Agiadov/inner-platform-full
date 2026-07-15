@@ -21,3 +21,16 @@ export async function supabaseRequest<T>(path: string, init: RequestInit = {}): 
     },
     cache: 'no-store',
   })
+
+  if (!response.ok) {
+    const details = await response.text()
+    throw new Error(`Supabase request failed (${response.status}): ${details}`)
+  }
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  const text = await response.text()
+  return (text ? JSON.parse(text) : undefined) as T
+}
