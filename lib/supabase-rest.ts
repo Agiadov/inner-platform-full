@@ -14,7 +14,4 @@ export async function supabaseRequest<T>(path: string, init: RequestInit = {}): 
     ...init,
     headers: {
       apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=representation',
-      ...init
+     
