@@ -1,14 +1,50 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Cloud, Loader2, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Cloud, ImagePlus, Loader2, Pencil, Plus, Save, Trash2, Upload, X } from 'lucide-react'
 import { CatalogProduct, ProductCategory, ProductStatus, seedProducts } from '@/lib/catalog'
 import styles from './products.module.css'
 
 const emptyProduct: Omit<CatalogProduct, 'id'> = {
-  name: '', category: 'Кроссовки', color: '', price: 0, status: 'Под заказ',
-  delivery: '10–17 дней', image: '', sizes: [], description: '',
+  name: '',
+  category: 'Кроссовки',
+  color: '',
+  price: 0,
+  status: 'Под заказ',
+  delivery: '10–17 дней',
+  image: '',
+  sizes: [],
+  description: '',
+}
+
+async function prepareImage(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('Выберите изображение.')
+  if (file.size > 8 * 1024 * 1024) throw new Error('Фото должно быть меньше 8 МБ.')
+
+  const source = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Не удалось прочитать фото.'))
+    reader.readAsDataURL(file)
+  })
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const element = new Image()
+    element.onload = () => resolve(element)
+    element.onerror = () => reject(new Error('Не удалось обработать фото.'))
+    element.src = source
+  })
+
+  const maxSide = 1400
+  const scale = Math.min(1, maxSide / Math.max(image.width, image.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(image.width * scale))
+  canvas.height = Math.max(1, Math.round(image.height * scale))
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Не удалось подготовить фото.')
+  context.drawImage(image, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/webp', 0.82)
 }
 
 export default function ProductsAdminPage() {
@@ -18,6 +54,7 @@ export default function ProductsAdminPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [configured, setConfigured] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -50,6 +87,23 @@ export default function ProductsAdminPage() {
     setDraft(values)
     setSizes(product.sizes.join(', '))
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setMessage('')
+    try {
+      const image = await prepareImage(file)
+      setDraft((current) => ({ ...current, image }))
+      setMessage('Фото загружено и подготовлено.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Не удалось загрузить фото')
+    } finally {
+      setUploading(false)
+      event.target.value = ''
+    }
   }
 
   async function saveProduct(event: FormEvent<HTMLFormElement>) {
@@ -125,19 +179,36 @@ export default function ProductsAdminPage() {
             <label>Цвет<input value={draft.color} onChange={(e) => setDraft({ ...draft, color: e.target.value })} /></label>
             <label>Цена<input type="number" min="1" value={draft.price || ''} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} required /></label>
           </div>
-          <label>Фото по ссылке<input value={draft.image} onChange={(e) => setDraft({ ...draft, image: e.target.value })} placeholder="https://..." required /></label>
+
+          <div className={styles.imageField}>
+            <span>Фото товара</span>
+            <label className={styles.uploadBox}>
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void handleImageUpload(event)} />
+              {uploading ? <Loader2 className={styles.spin} size={25} /> : <Upload size={25} />}
+              <strong>{uploading ? 'Обрабатываем фото…' : 'Выбрать фото с устройства'}</strong>
+              <small>JPG, PNG или WEBP, до 8 МБ</small>
+            </label>
+            {draft.image && (
+              <div className={styles.imagePreview}>
+                <img src={draft.image} alt="Предпросмотр товара" />
+                <button type="button" onClick={() => setDraft({ ...draft, image: '' })}><X size={16} /> Удалить фото</button>
+              </div>
+            )}
+            <label className={styles.urlField}>Или вставить ссылку<input value={draft.image.startsWith('data:') ? '' : draft.image} onChange={(e) => setDraft({ ...draft, image: e.target.value })} placeholder="https://..." /></label>
+          </div>
+
           <div className={styles.row}>
             <label>Размеры<input value={sizes} onChange={(e) => setSizes(e.target.value)} /></label>
             <label>Доставка<input value={draft.delivery} onChange={(e) => setDraft({ ...draft, delivery: e.target.value })} /></label>
           </div>
           <label>Описание<textarea rows={4} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>
-          <button type="submit" disabled={saving || !configured}>{saving ? <Loader2 className={styles.spin} size={18} /> : <Save size={18} />} {editingId ? 'Сохранить изменения' : 'Добавить товар'}</button>
+          <button type="submit" disabled={saving || uploading || !configured || !draft.image}>{saving ? <Loader2 className={styles.spin} size={18} /> : <Save size={18} />} {editingId ? 'Сохранить изменения' : 'Добавить товар'}</button>
           {editingId && <button className={styles.cancelButton} type="button" onClick={resetForm}><X size={17} /> Отмена</button>}
-          <p className={styles.note}>{configured ? 'Изменения сразу сохраняются в общей базе.' : 'После подключения Supabase форма станет активной.'}</p>
+          <p className={styles.note}>{configured ? 'Фото и изменения сразу сохраняются в общей базе.' : 'После подключения Supabase форма станет активной.'}</p>
         </form>
 
         <div className={styles.listCard}>
-          <h2>Каталог</h2>
+          <h2><ImagePlus size={19} /> Каталог</h2>
           {loading ? <div className={styles.loading}><Loader2 className={styles.spin} /> Загрузка...</div> : (
             <div className={styles.list}>
               {products.map((product) => (
