@@ -1,4 +1,5 @@
-import { OtapiError, searchPoizonItems } from '@/lib/otapi'
+import { OtapiError } from '@/lib/otapi'
+import { searchPoizonCatalog } from '@/lib/poizon-catalog-search'
 import { jsonWithCors, preflight } from '@/lib/cors'
 
 export const dynamic = 'force-dynamic'
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
       )
     }
 
-    const result = await searchPoizonItems(query, offset, limit)
+    const result = await searchPoizonCatalog(query, offset, limit)
 
     return jsonWithCors(request, {
       ok: true,
@@ -62,6 +63,7 @@ export async function GET(request: Request) {
       query,
       offset,
       limit,
+      search: result.search,
       items: result.items,
       ...(includeRaw ? { raw: result.raw } : {}),
     })
