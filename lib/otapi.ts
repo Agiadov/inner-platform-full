@@ -1,3 +1,5 @@
+import { unstable_cache } from 'next/cache'
+
 const OTAPI_BASE_URL = 'https://otapi.net/service-json'
 const DEFAULT_LANGUAGE = 'en'
 const POIZON_PROVIDER = 'Poizon'
@@ -223,13 +225,16 @@ function apiError(raw: unknown) {
   const candidates = [raw, objectValue(raw.Error, raw.error), objectValue(raw.Result, raw.result)].filter(isRecord)
   for (const candidate of candidates) {
     const code = text(candidate, ['ErrorCode', 'errorCode', 'Code', 'code'])
+    const subCode = text(candidate, ['SubErrorCode', 'subErrorCode'])
     const message = text(candidate, ['ErrorDescription', 'errorDescription', 'ErrorMessage', 'errorMessage', 'Message', 'message', 'Description', 'description'])
-    if (message && (code || /error|limit|not found|invalid|missing parameter|contract/i.test(message))) return { code, message }
+    if (message && (code || subCode || /error|limit|not found|invalid|missing parameter|contract/i.test(message))) {
+      return { code: [code, subCode].filter(Boolean).join(':'), message }
+    }
   }
   return undefined
 }
 
-export async function callOtapi(method: string, params: Record<string, string | number | undefined>) {
+async function callOtapiUncached(method: string, params: Record<string, string | number | undefined>) {
   const body = new URLSearchParams({ instanceKey: instanceKey(), language: DEFAULT_LANGUAGE })
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined) body.set(key, String(value))
@@ -275,14 +280,31 @@ export async function callOtapi(method: string, params: Record<string, string | 
     const rateLimited = /limit|quota|too many/i.test(`${upstream.code ?? ''} ${upstream.message}`)
     const notFound = /not.?found|does not exist|unknown item/i.test(upstream.message)
     const contractViolation = /contract|missing parameter/i.test(`${upstream.code ?? ''} ${upstream.message}`)
-    throw new OtapiError(upstream.message, {
+    throw new OtapiError(rateLimited ? 'Актуальную цену уточним перед оплатой' : upstream.message, {
       status: rateLimited ? 429 : notFound ? 404 : contractViolation ? 502 : 502,
       code: upstream.code ?? (rateLimited ? 'OTAPI_RATE_LIMITED' : notFound ? 'OTAPI_NOT_FOUND' : 'OTAPI_ERROR'),
+      retryAfter: rateLimited ? '300' : undefined,
       details: json,
     })
   }
 
   return json
+}
+
+const callOtapiCached = unstable_cache(
+  async (method: string, serializedParams: string) => {
+    const params = JSON.parse(serializedParams) as Record<string, string | number | undefined>
+    return callOtapiUncached(method, params)
+  },
+  ['otapi-response-v1'],
+  { revalidate: 120 },
+)
+
+export async function callOtapi(method: string, params: Record<string, string | number | undefined>) {
+  const serializedParams = JSON.stringify(
+    Object.fromEntries(Object.entries(params).sort(([left], [right]) => left.localeCompare(right))),
+  )
+  return callOtapiCached(method, serializedParams)
 }
 
 export function normalizePoizonId(input: string) {
