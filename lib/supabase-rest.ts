@@ -1,6 +1,6 @@
 const supabaseUrl = process.env.SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-const publicSupabaseUrl = process.env.SUPABASE_URL || 'https://ygbzwrlvcenydolzelol.supabase.co'
+const publicSupabaseUrl = 'https://ygbzwrlvcenydolzelol.supabase.co'
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_0-bsRSr4kWrmqRYWiGB15A_3pFymfJE'
 
 export function isSupabaseConfigured() {
