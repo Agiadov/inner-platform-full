@@ -3,12 +3,21 @@ create table if not exists public.products (
   name text not null,
   category text not null check (category in ('Кроссовки','Одежда','Аксессуары','Техника')),
   color text not null default '',
-  price integer not null check (price > 0),
-  status text not null check (status in ('В наличии','Под заказ')),
+  price integer not null default 0 check (price >= 0),
+  status text not null check (status in ('В наличии','Под заказ','Нет в наличии')),
   delivery text not null default '10–17 дней',
   image text not null,
+  images text[] not null default '{}',
   sizes text[] not null default '{}',
+  variants jsonb not null default '[]'::jsonb,
+  brand text not null default '',
+  model text not null default '',
+  article text not null default '',
   description text not null default '',
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  price_confirmed_at timestamptz,
+  updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 
@@ -26,6 +35,11 @@ create table if not exists public.orders (
 
 alter table public.products enable row level security;
 alter table public.orders enable row level security;
+
+revoke all on table public.products from anon, authenticated;
+revoke all on table public.orders from anon, authenticated;
+grant select, insert, update, delete on table public.products to service_role;
+grant select, insert, update, delete on table public.orders to service_role;
 
 -- The application uses SUPABASE_SERVICE_ROLE_KEY only on the server.
 -- Do not expose that key in NEXT_PUBLIC_* variables.
