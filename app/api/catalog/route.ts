@@ -61,6 +61,12 @@ const CNY_PRICING: Record<string, { sourcePrice: number; deliveryRub: number }> 
   'ASICS Gel-Kayano 14': { sourcePrice: 950, deliveryRub: 1_800 },
   'Adidas Campus 00s': { sourcePrice: 610, deliveryRub: 1_800 },
   MR530EMA: { sourcePrice: 500, deliveryRub: 1_800 },
+  M2002RXJ: { sourcePrice: 750, deliveryRub: 1_800 },
+  U9060ZGB: { sourcePrice: 950, deliveryRub: 1_800 },
+  '1201A789-106': { sourcePrice: 900, deliveryRub: 1_800 },
+  '1201B020-100': { sourcePrice: 600, deliveryRub: 1_800 },
+  'CD6404-100': { sourcePrice: 650, deliveryRub: 1_800 },
+  IH4879: { sourcePrice: 550, deliveryRub: 1_800 },
 }
 
 type CbrRates = { USD: number; CNY: number }
