@@ -56,30 +56,42 @@ const APPLE_USD_PRICES: Record<string, Record<string, number>> = {
   },
 }
 
-const getCbrUsdRate = unstable_cache(
+const CNY_PRICING: Record<string, { sourcePrice: number; deliveryRub: number }> = {
+  'Nike Air Force 1': { sourcePrice: 650, deliveryRub: 1_800 },
+  'ASICS Gel-Kayano 14': { sourcePrice: 950, deliveryRub: 1_800 },
+  'Adidas Campus 00s': { sourcePrice: 610, deliveryRub: 1_800 },
+  MR530EMA: { sourcePrice: 500, deliveryRub: 1_800 },
+}
+
+type CbrRates = { USD: number; CNY: number }
+
+const getCbrRates = unstable_cache(
   async () => {
     const response = await fetch('https://www.cbr.ru/scripts/XML_daily.asp', {
       headers: { Accept: 'application/xml,text/xml' },
     })
     if (!response.ok) throw new Error(`CBR rate request failed: ${response.status}`)
     const xml = await response.text()
-    const usd = xml.match(
-      /<Valute[^>]*>[\s\S]*?<CharCode>USD<\/CharCode>[\s\S]*?<Nominal>(\d+)<\/Nominal>[\s\S]*?<Value>([\d,]+)<\/Value>[\s\S]*?<\/Valute>/,
-    )
-    if (!usd) throw new Error('USD rate missing in CBR response')
-    const nominal = Number(usd[1])
-    const value = Number(usd[2].replace(',', '.'))
-    if (!Number.isFinite(nominal) || !Number.isFinite(value) || nominal <= 0) {
-      throw new Error('Invalid USD rate in CBR response')
+    const readRate = (currency: keyof CbrRates) => {
+      const match = xml.match(
+        new RegExp(`<Valute[^>]*>[\\s\\S]*?<CharCode>${currency}<\\/CharCode>[\\s\\S]*?<Nominal>(\\d+)<\\/Nominal>[\\s\\S]*?<Value>([\\d,]+)<\\/Value>[\\s\\S]*?<\\/Valute>`),
+      )
+      if (!match) throw new Error(`${currency} rate missing in CBR response`)
+      const nominal = Number(match[1])
+      const value = Number(match[2].replace(',', '.'))
+      if (!Number.isFinite(nominal) || !Number.isFinite(value) || nominal <= 0) {
+        throw new Error(`Invalid ${currency} rate in CBR response`)
+      }
+      return value / nominal
     }
-    return value / nominal
+    return { USD: readRate('USD'), CNY: readRate('CNY') }
   },
-  ['cbr-usd-rate-v1'],
+  ['cbr-rates-v2'],
   { revalidate: 21_600 },
 )
 
-function finalInnerPrice(usdPrice: number, usdRate: number) {
-  const calculated = (usdPrice * usdRate + 5_000) * 1.15
+function finalInnerPrice(sourcePrice: number, rate: number, deliveryRub: number) {
+  const calculated = (sourcePrice * rate + deliveryRub) * 1.15
   return Math.ceil(calculated / 1_000) * 1_000 - 10
 }
 
@@ -90,17 +102,28 @@ export function OPTIONS(request: Request) {
 export async function GET(request: Request) {
   try {
     const rows = await readCatalog()
-    const usdRate = await getCbrUsdRate().catch(() => null)
+    const rates = await getCbrRates().catch(() => null)
     const items = rows.map((row) => {
       const applePrices = APPLE_USD_PRICES[row.article]
-      const cbrVariants = applePrices && usdRate
+      const cnyPricing = CNY_PRICING[row.article] ?? CNY_PRICING[row.name]
+      const cbrVariants = applePrices && rates
         ? Object.entries(applePrices).map(([size, usdPrice]) => ({
             size,
             available: true,
-            finalPriceRub: finalInnerPrice(usdPrice, usdRate),
+            finalPriceRub: finalInnerPrice(usdPrice, rates.USD, 5_000),
           }))
+        : cnyPricing && rates && row.variants.length
+          ? row.variants.map((variant) => ({
+              ...variant,
+              finalPriceRub: variant.available
+                ? finalInnerPrice(cnyPricing.sourcePrice, rates.CNY, cnyPricing.deliveryRub)
+                : null,
+            }))
+          : null
+      const cnyFinalPrice = cnyPricing && rates
+        ? finalInnerPrice(cnyPricing.sourcePrice, rates.CNY, cnyPricing.deliveryRub)
         : null
-      const finalPriceRub = cbrVariants?.[0]?.finalPriceRub ?? (row.price > 0 ? row.price : null)
+      const finalPriceRub = cbrVariants?.[0]?.finalPriceRub ?? cnyFinalPrice ?? (row.price > 0 ? row.price : null)
 
       return {
         id: `inner-${row.id}`,
