@@ -14,6 +14,10 @@ export type InnerPriceBreakdown = {
   finalPriceRub: number
 }
 
+const DEFAULT_CNY_TO_RUB = 14
+const DEFAULT_DELIVERY_RUB = 1500
+const DEFAULT_MARGIN_PERCENT = 15
+
 function readPositiveNumber(name: string) {
   const raw = process.env[name]?.trim()
   if (!raw) return undefined
@@ -21,16 +25,12 @@ function readPositiveNumber(name: string) {
   return Number.isFinite(value) && value >= 0 ? value : undefined
 }
 
-export function getInnerPricingSettings(): PricingSettings | undefined {
-  const cnyToRub = readPositiveNumber('INNER_CNY_TO_RUB')
-  const deliveryRub = readPositiveNumber('INNER_DELIVERY_RUB')
-  const marginPercent = readPositiveNumber('INNER_MARGIN_PERCENT')
-
-  if (cnyToRub === undefined || deliveryRub === undefined || marginPercent === undefined) {
-    return undefined
+export function getInnerPricingSettings(): PricingSettings {
+  return {
+    cnyToRub: readPositiveNumber('INNER_CNY_TO_RUB') ?? DEFAULT_CNY_TO_RUB,
+    deliveryRub: readPositiveNumber('INNER_DELIVERY_RUB') ?? DEFAULT_DELIVERY_RUB,
+    marginPercent: readPositiveNumber('INNER_MARGIN_PERCENT') ?? DEFAULT_MARGIN_PERCENT,
   }
-
-  return { cnyToRub, deliveryRub, marginPercent }
 }
 
 function roundRetailPrice(value: number) {
@@ -38,9 +38,9 @@ function roundRetailPrice(value: number) {
 }
 
 export function calculateInnerPrice(sourcePriceCny: number): InnerPriceBreakdown | undefined {
-  const settings = getInnerPricingSettings()
-  if (!settings || !Number.isFinite(sourcePriceCny) || sourcePriceCny < 0) return undefined
+  if (!Number.isFinite(sourcePriceCny) || sourcePriceCny < 0) return undefined
 
+  const settings = getInnerPricingSettings()
   const productRub = sourcePriceCny * settings.cnyToRub
   const baseRub = productRub + settings.deliveryRub
   const marginRub = baseRub * (settings.marginPercent / 100)
