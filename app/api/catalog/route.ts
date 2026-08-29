@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { jsonWithCors, preflight } from '@/lib/cors'
-import { isSupabaseConfigured, supabaseRequest } from '@/lib/supabase-rest'
+import { supabasePublicRequest } from '@/lib/supabase-rest'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +36,7 @@ const columns = [
 ].join(',')
 
 const readCatalog = unstable_cache(
-  async () => supabaseRequest<CatalogRow[]>(
+  async () => supabasePublicRequest<CatalogRow[]>(
     `products?select=${columns}&is_active=eq.true&order=sort_order.asc,id.asc`,
   ),
   ['inner-owned-catalog-v1'],
@@ -48,14 +48,6 @@ export function OPTIONS(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (!isSupabaseConfigured()) {
-    return jsonWithCors(request, {
-      ok: false,
-      items: [],
-      message: 'Актуальную цену уточним перед оплатой',
-    }, { status: 503 })
-  }
-
   try {
     const rows = await readCatalog()
     const items = rows.map((row) => ({
