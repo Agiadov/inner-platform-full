@@ -1,6 +1,7 @@
 import { getPoizonItem, OtapiError } from '@/lib/otapi'
 import { jsonWithCors, preflight } from '@/lib/cors'
 import { normalizePoizonConfiguredVariants, normalizePoizonItemMeta } from '@/lib/poizon-variants'
+import { calculateInnerPrice } from '@/lib/inner-pricing'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,16 +57,23 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const result = await getPoizonItem(id)
     throwIfRawOtapiError(result.raw)
 
-    const variants = normalizePoizonConfiguredVariants(result.raw)
+    const rawVariants = normalizePoizonConfiguredVariants(result.raw)
+    const variants = rawVariants.map((variant) => ({
+      ...variant,
+      innerPrice: typeof variant.price === 'number' ? calculateInnerPrice(variant.price) : undefined,
+    }))
     const meta = normalizePoizonItemMeta(result.raw)
+    const innerPrice = typeof meta.price === 'number' ? calculateInnerPrice(meta.price) : undefined
 
     return jsonWithCors(request, {
       ok: true,
       provider: 'Poizon',
       productId: result.id,
+      pricingConfigured: Boolean(innerPrice),
       product: {
         ...result.product,
         ...meta,
+        innerPrice,
         variants,
         sizes: variants.map((variant) => variant.size),
       },
