@@ -1,5 +1,6 @@
 import { getPoizonItem, OtapiError } from '@/lib/otapi'
 import { jsonWithCors, preflight } from '@/lib/cors'
+import { normalizePoizonConfiguredVariants, normalizePoizonItemMeta } from '@/lib/poizon-variants'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,11 +56,19 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const result = await getPoizonItem(id)
     throwIfRawOtapiError(result.raw)
 
+    const variants = normalizePoizonConfiguredVariants(result.raw)
+    const meta = normalizePoizonItemMeta(result.raw)
+
     return jsonWithCors(request, {
       ok: true,
       provider: 'Poizon',
       productId: result.id,
-      product: result.product,
+      product: {
+        ...result.product,
+        ...meta,
+        variants,
+        sizes: variants.map((variant) => variant.size),
+      },
       ...(includeRaw ? { raw: result.raw } : {}),
     })
   } catch (error) {
