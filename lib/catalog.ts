@@ -12,6 +12,14 @@ export type CatalogProduct = {
   image: string
   sizes: string[]
   description: string
+  images?: string[]
+  variants?: Array<{ size: string; available: boolean; finalPriceRub: number | null }>
+  brand?: string
+  model?: string
+  article?: string
+  is_active?: boolean
+  sort_order?: number
+  price_confirmed_at?: string | null
 }
 
 export const seedProducts: CatalogProduct[] = [
