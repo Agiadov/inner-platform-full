@@ -1,12 +1,13 @@
-import { NextResponse } from 'next/server'
 import { OtapiError, searchPoizonItems } from '@/lib/otapi'
+import { jsonWithCors, preflight } from '@/lib/cors'
 
 export const dynamic = 'force-dynamic'
 
-function errorResponse(error: unknown) {
+function errorResponse(request: Request, error: unknown) {
   if (error instanceof OtapiError) {
     const headers = error.retryAfter ? { 'Retry-After': error.retryAfter } : undefined
-    return NextResponse.json(
+    return jsonWithCors(
+      request,
       {
         ok: false,
         error: error.message,
@@ -17,10 +18,15 @@ function errorResponse(error: unknown) {
   }
 
   console.error('Poizon search endpoint error:', error)
-  return NextResponse.json(
+  return jsonWithCors(
+    request,
     { ok: false, error: 'Не удалось выполнить поиск Poizon.', code: 'INTERNAL_ERROR' },
     { status: 500 },
   )
+}
+
+export function OPTIONS(request: Request) {
+  return preflight(request)
 }
 
 export async function GET(request: Request) {
@@ -33,14 +39,16 @@ export async function GET(request: Request) {
     const includeRaw = url.searchParams.get('raw') === '1'
 
     if (query.length < 2) {
-      return NextResponse.json(
+      return jsonWithCors(
+        request,
         { ok: false, error: 'Введите минимум 2 символа для поиска.', code: 'QUERY_TOO_SHORT' },
         { status: 400 },
       )
     }
 
     if (query.length > 120) {
-      return NextResponse.json(
+      return jsonWithCors(
+        request,
         { ok: false, error: 'Поисковый запрос слишком длинный.', code: 'QUERY_TOO_LONG' },
         { status: 400 },
       )
@@ -48,7 +56,7 @@ export async function GET(request: Request) {
 
     const result = await searchPoizonItems(query, offset, limit)
 
-    return NextResponse.json({
+    return jsonWithCors(request, {
       ok: true,
       provider: 'Poizon',
       query,
@@ -58,6 +66,6 @@ export async function GET(request: Request) {
       ...(includeRaw ? { raw: result.raw } : {}),
     })
   } catch (error) {
-    return errorResponse(error)
+    return errorResponse(request, error)
   }
 }
