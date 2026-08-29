@@ -223,8 +223,8 @@ function apiError(raw: unknown) {
   const candidates = [raw, objectValue(raw.Error, raw.error), objectValue(raw.Result, raw.result)].filter(isRecord)
   for (const candidate of candidates) {
     const code = text(candidate, ['ErrorCode', 'errorCode', 'Code', 'code'])
-    const message = text(candidate, ['ErrorMessage', 'errorMessage', 'Message', 'message', 'Description', 'description'])
-    if (message && (code || /error|limit|not found|invalid/i.test(message))) return { code, message }
+    const message = text(candidate, ['ErrorDescription', 'errorDescription', 'ErrorMessage', 'errorMessage', 'Message', 'message', 'Description', 'description'])
+    if (message && (code || /error|limit|not found|invalid|missing parameter|contract/i.test(message))) return { code, message }
   }
   return undefined
 }
@@ -232,7 +232,7 @@ function apiError(raw: unknown) {
 export async function callOtapi(method: string, params: Record<string, string | number | undefined>) {
   const body = new URLSearchParams({ instanceKey: instanceKey(), language: DEFAULT_LANGUAGE })
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== '') body.set(key, String(value))
+    if (value !== undefined) body.set(key, String(value))
   })
 
   let response: Response
@@ -274,8 +274,9 @@ export async function callOtapi(method: string, params: Record<string, string | 
   if (upstream) {
     const rateLimited = /limit|quota|too many/i.test(`${upstream.code ?? ''} ${upstream.message}`)
     const notFound = /not.?found|does not exist|unknown item/i.test(upstream.message)
+    const contractViolation = /contract|missing parameter/i.test(`${upstream.code ?? ''} ${upstream.message}`)
     throw new OtapiError(upstream.message, {
-      status: rateLimited ? 429 : notFound ? 404 : 502,
+      status: rateLimited ? 429 : notFound ? 404 : contractViolation ? 502 : 502,
       code: upstream.code ?? (rateLimited ? 'OTAPI_RATE_LIMITED' : notFound ? 'OTAPI_NOT_FOUND' : 'OTAPI_ERROR'),
       details: json,
     })
@@ -313,6 +314,11 @@ function escapeXml(value: string) {
 export async function searchPoizonItems(query: string, framePosition = 0, frameSize = 20) {
   const safeQuery = escapeXml(query.trim())
   const xmlParameters = `<SearchItemsParameters><Provider>${POIZON_PROVIDER}</Provider><SearchMethod>Default</SearchMethod><ItemTitle>${safeQuery}</ItemTitle></SearchItemsParameters>`
-  const raw = await callOtapi('BatchSearchItemsFrame', { framePosition, frameSize, xmlParameters })
+  const raw = await callOtapi('BatchSearchItemsFrame', {
+    framePosition,
+    frameSize,
+    blockList: '',
+    xmlParameters,
+  })
   return { raw, items: normalizePoizonSearch(raw) }
 }
