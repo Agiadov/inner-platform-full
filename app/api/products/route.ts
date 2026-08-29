@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { seedProducts, type CatalogProduct } from '@/lib/catalog'
 import { isSupabaseConfigured, supabaseRequest } from '@/lib/supabase-rest'
 
-const columns = 'id,name,category,color,price,status,delivery,image,sizes,description,created_at'
+const columns = 'id,name,category,color,price,status,delivery,image,images,sizes,variants,brand,model,article,description,is_active,sort_order,price_confirmed_at,created_at,updated_at'
 
 export async function GET() {
   if (!isSupabaseConfigured()) {
@@ -25,8 +25,8 @@ export async function POST(request: Request) {
 
   try {
     const product = (await request.json()) as Omit<CatalogProduct, 'id'>
-    if (!product.name?.trim() || !product.image?.trim() || Number(product.price) <= 0) {
-      return NextResponse.json({ ok: false, error: 'Заполните название, цену и фото.' }, { status: 400 })
+    if (!product.name?.trim() || Number(product.price) < 0) {
+      return NextResponse.json({ ok: false, error: 'Заполните название и корректную цену.' }, { status: 400 })
     }
 
     const created = await supabaseRequest<CatalogProduct[]>('products', {
